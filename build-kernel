@@ -289,7 +289,7 @@ while [ $# -gt 0 ]; do
     *)
       OUTDIR="$1"
       OUTDIR="$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' <<< "${OUTDIR}")"
-      YELLOW "final output zip file will be found in $OUTDIR"
+      echo "final output zip file will be found in $OUTDIR"
       shift
       ;;
 
@@ -1103,6 +1103,4 @@ if [ "${XCOMPILE}" = "FALSE" ]; then
   fi
 
 fi
-
-YELLOW "final output zip file will be found in $OUTDIR"
 echo ""

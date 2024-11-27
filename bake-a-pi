@@ -1,5 +1,15 @@
 #!/bin/bash
 
+start_time=`date +%s`
+trap stopwatch SIGTERM SIGINT SIGQUIT EXIT 
+
+function stopwatch()
+{
+   trap - SIGTERM SIGINT SIGQUIT EXIT 
+   stop_time=`date +%s`
+   exec_time=$(date -u --date @$(($stop_time - $start_time)) +%H:%M:%S)
+   echo -e "\n\ntotal time for build = $exec_time \n "
+}
 
 #https://forums.raspberrypi.com/viewtopic.php?t=343387
 
@@ -24,6 +34,8 @@ Usage: build-kernel [options] [output directory]
 -p,--purge           Purge source files upon completion
 -r,--reboot          Reboot upon completion
 -s,--suffix          Append modules suffix (suffix)
+-x,--cross-compile   Cross-compile mode
+
 -u,--unattended      Unattended operation, defaults:
    Branch = current
    Config = Raspberry Pi 3, 3+, 4, 400 and Zero 2 W, and Raspberry Pi Compute Modules 3, 3+ and 4 (64-bit)
@@ -39,19 +51,23 @@ Usage: build-kernel [options] [output directory]
    Reboot = no
    Suffix = none
    Xcompile = no
--x,--cross-compile   Cross-compile mode
 
 _EOF
 
-# odd. need 'oldbootmount' so the destination directory layout has no "firmware" aspect
-# I think this is for image mounts and not direct on target directory layouts
+# Oldbootmnt 
+#  final zip file has 2 different layouts depending on deployment strategy
+#    - choose yes if you are pasting the zip file into a mounted Pi ISO IMAGE
+#    - dont include if you are zippping directly into a live system
+# ------------------
 
 #--delete (delete entire source before build) !
 #--purge  (delete source after build ) NO!
 #
-BINARY_OUTPUT_DIR=/home/dwade/raspi-output
+ZIP_DIR_OUTPUT=/home/dwade/pi-kernel.out
 #
-./build-kernel --branch rpi-6.6.y --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile $BINARY_OUTPUT_DIR 
+sudo ./build-kernel --branch rpi-6.6.y --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile $ZIP_DIR_OUTPUT 
 
-ls -al $BINARY_OUTPUT_DIR
+echo "see $ZIP_DIR_OUTPUT for build output"
+
+ls -al $ZIP_DIR_OUTPUT
 
