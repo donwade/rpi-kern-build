@@ -43,6 +43,15 @@ Usage: build-kernel [options] [output directory]
 
 _EOF
 
-./build-kernel --branch rpi-6.6.y --noinitramfs yes --config 5  --jobs 3 --menuconfig  --unattended   --suffix CNN  --keep --cross-compile
+# odd. need 'oldbootmount' so the destination directory layout has no "firmware" aspect
+# I think this is for image mounts and not direct on target directory layouts
 
+#--delete (delete entire source before build) !
+#--purge  (delete source after build ) NO!
+#
+BINARY_OUTPUT_DIR=/home/dwade/raspi-output
+#
+./build-kernel --branch rpi-6.6.y --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile $BINARY_OUTPUT_DIR 
+
+ls -al $BINARY_OUTPUT_DIR
 

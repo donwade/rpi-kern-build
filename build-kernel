@@ -2,6 +2,21 @@
 
 trap '{ stty sane; echo ""; errexit "Aborted"; }' SIGINT SIGTERM
 
+function make()
+{
+    echo "------------------------------------------------------------"
+    echo "make $*"
+    echo
+    sleep 2
+    /bin/make $*
+}
+
+SOURCE_DIR="/raspi-workspace"
+[ -d $SOURCE_DIR ] || sudo mkdir -p $SOURCE_DIR
+
+MAKE_OPTS='V=1'
+
+
 CONFIG1="Raspberry Pi 1, Zero and Zero W, and Raspberry Pi Compute Module 1 (32-bit) [kernel.img]"
 CONFIG2="Raspberry Pi 2, 3, 3+ and Zero 2 W, and Raspberry Pi Compute Modules 3 and 3+ (32-bit) [kernel7.img]"
 CONFIG3="Raspberry Pi 4 and 400, and Raspberry Pi Compute Module 4 (32-bit) [kernel7l.img]"
@@ -18,9 +33,8 @@ errexit()
     rm -r "${SRCDIR}" &> /dev/null
   fi
 
-
-  if [ "${DSTDIR}" != "" ]; then
-    rm -r "${DSTDIR}" &> /dev/null
+  if [ "${INSTALL_STAGING}" != "" ]; then
+    rm -r "${INSTALL_STAGING}" &> /dev/null
   fi
 
   exit 1
@@ -33,7 +47,7 @@ instpkgs()
 
   PKGS=("$@")
   for i in ${!PKGS[@]}; do
-    dpkg -s "${PKGS[i]}" &> /dev/null
+    dpkg -s "${PKGS[i]}"  &> /dev/null 
 
     if [ $? -eq 0 ]; then
       unset PKGS[i]
@@ -139,7 +153,7 @@ olddtb()
 }
 
 SRCDIR=""
-DSTDIR=""
+INSTALL_STAGING=""   # disposable after zip file is created.
 
 if [ $(id -u) -ne 0 ]; then
   errexit "Must be run as root user: sudo $0"
@@ -275,6 +289,7 @@ while [ $# -gt 0 ]; do
     *)
       OUTDIR="$1"
       OUTDIR="$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' <<< "${OUTDIR}")"
+      YELLOW "final output zip file will be found in $OUTDIR"
       shift
       ;;
 
@@ -667,8 +682,8 @@ if [ "${UNATND}" = "FALSE" ]; then
 fi
 
 
-if [ -d /usr/src/linux ]; then
-  SOURCE="$(sed -n 's|^\[branch "\(.*\)"\]|\1|p' /usr/src/linux/.git/config 2> /dev/null)"
+if [ -d $SOURCE_DIR/linux ]; then
+  SOURCE="$(sed -n 's|^\[branch "\(.*\)"\]|\1|p' $SOURCE_DIR/linux/.git/config 2> /dev/null)"
   TARGET="${BRANCH}"
 
   if [ "${TARGET}" = "default" ]; then
@@ -703,13 +718,15 @@ if [ -d /usr/src/linux ]; then
   if [ "${DELETE}" = "TRUE" ]; then
     echo ""
     echo "Deleting existing source files"
-    rm -r /usr/src/linux
+    rm -r $SOURCE_DIR/linux
   fi
 
 fi
 
 
-if [ -d /usr/src/linux ]; then
+source /home/dwade/Scripts/common/bash_backtrace.sh
+
+if [ -d $SOURCE_DIR/linux ]; then
 
   if [[ ! "${BRANCH}" =~ ^[[:xdigit:]]+$ && "${BRANCH}" != "current" ]]; then
 
@@ -733,7 +750,7 @@ if [ -d /usr/src/linux ]; then
 
 
     if [ "${FRESHEN}" = "TRUE" ]; then
-      cd /usr/src/linux
+      cd $SOURCE_DIR/linux
       echo ""
       echo "Freshening existing source files"
       OUTPUT="$(mktemp)"
@@ -757,12 +774,14 @@ if [ -d /usr/src/linux ]; then
 
 else
   set -x
-  cd /usr/src
+  cd $SOURCE_DIR
   echo ""
   echo "Downloading source files (this may take a while)"
 
   if [[ "${BRANCH}" =~ ^[[:xdigit:]]+$ || "${BRANCH}" = "current" ]]; then
-    SRCDIR="$(mktemp --directory --tmpdir build-kernel-srcdir-XXXXX)"
+    #dwade SRCDIR="$(mktemp --directory --tmpdir build-kernel-srcdir-XXXXX)"
+    SRCDIR="/tmp/kernel"
+    mkdir -p $SRCDIR
 
     if [ $? -ne 0 ]; then
       errexit "mktemp failed"
@@ -780,7 +799,7 @@ else
 
     else
       wget -q -O /usr/local/bin/rpi-source https://raw.githubusercontent.com/RPi-Distro/rpi-source/master/rpi-source &&\
- chmod +x /usr/local/bin/rpi-source && /usr/local/bin/rpi-source -q --tag-update && /usr/local/bin/rpi-source --quiet --dest ${SRCDIR} --delete --nomake
+      chmod +x /usr/local/bin/rpi-source && /usr/local/bin/rpi-source -q --tag-update && /usr/local/bin/rpi-source --quiet --dest ${SRCDIR} --delete --nomake
       RESULT=$?
     fi
 
@@ -790,12 +809,12 @@ else
     fi
 
     COMMITID="$(ls ${SRCDIR} | sed -n 's/linux-\([[:xdigit:]]\{40\}\)/\1/p')"
-    rm -r /usr/src/linux &> /dev/null
-    mv ${SRCDIR}/linux-${COMMITID} /usr/src/linux
+    rm -r $SOURCE_DIR/linux &> /dev/null
+    mv ${SRCDIR}/linux-${COMMITID} $SOURCE_DIR/linux
     rm -r ${SRCDIR}
     SRCDIR=""
-    mkdir /usr/src/linux/.git
-    echo "[branch \"${BRANCH}\"]" > /usr/src/linux/.git/config
+    mkdir $SOURCE_DIR/linux/.git
+    echo "[branch \"${BRANCH}\"]" > $SOURCE_DIR/linux/.git/config
   elif [ "${BRANCH}" = "default" ]; then
     git clone --quiet --depth=1 https://github.com/raspberrypi/linux
   else
@@ -804,7 +823,7 @@ else
 
 fi
 
-cd /usr/src/linux
+cd $SOURCE_DIR/linux
 echo ""
 make ${MAKCFG}
 
@@ -842,7 +861,7 @@ echo ""
 BUILD="$(sed -n 's|^.*\s\+\(\S\+\.\S\+\.\S\+\)\s\+Kernel Configuration$|\1|p' .config)-rpi999-rpi-${KRNLID}"
 
 if [ "${XCOMPILE}" = "TRUE" ]; then
-  DSTDIR="$(mktemp --directory --tmpdir build-kernel-dstdir-XXXXX)"
+  INSTALL_STAGING="$(mktemp --directory --tmpdir build-kernel-install-stage-dir-XXXXX)"
 
   if [ $? -ne 0 ]; then
     errexit "mktemp failed"
@@ -852,75 +871,79 @@ if [ "${XCOMPILE}" = "TRUE" ]; then
   if [[ "${KRNLID}" = "v8" || "${KRNLID}" = "2712" ]]; then
 
     if [ "${OLDBOOT}" = "FALSE" ]; then
-      make -j ${JOBS} KERNELRELEASE="${BUILD}" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz modules dtbs
-      env PATH=$PATH make KERNELRELEASE="${BUILD}" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=${DSTDIR} modules_install
-      mkdir -p "${DSTDIR}/boot/firmware/overlays/"
-      mkdir -p "${DSTDIR}/lib/linux-image-${BUILD}/broadcom/"
-      mkdir -p "${DSTDIR}/lib/linux-image-${BUILD}/overlays/"
-      cp .config "${DSTDIR}/boot/config-${BUILD}"
-      echo "ffffffffffffffff B The real System.map is in the linux-image-<version>-dbg package" > "${DSTDIR}/boot/System.map-${BUILD}"
-      cp arch/arm64/boot/Image.gz "${DSTDIR}/boot/vmlinuz-${BUILD}"
-      cp arch/arm64/boot/dts/broadcom/*.dtb "${DSTDIR}/lib/linux-image-${BUILD}/broadcom/"
-      cp arch/arm64/boot/dts/overlays/*.dtb* "${DSTDIR}/lib/linux-image-${BUILD}/overlays/"
-      cp arch/arm64/boot/dts/overlays/README "${DSTDIR}/lib/linux-image-${BUILD}/overlays/"
-      cp arch/arm64/boot/Image.gz "${DSTDIR}/boot/firmware/${OLDIMG}"
-      cp arch/arm64/boot/dts/broadcom/*.dtb "${DSTDIR}/boot/firmware/"
-      cp arch/arm64/boot/dts/overlays/*.dtb* "${DSTDIR}/boot/firmware/overlays/"
-      cp arch/arm64/boot/dts/overlays/README "${DSTDIR}/boot/firmware/overlays/"
+      make -j ${JOBS} ${MAKE_OPTS} KERNELRELEASE="${BUILD}" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz modules dtbs
+      env PATH=$PATH make KERNELRELEASE="${BUILD}" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=${INSTALL_STAGING} modules_install
+      mkdir -p "${INSTALL_STAGING}/boot/firmware/overlays/"
+      mkdir -p "${INSTALL_STAGING}/lib/linux-image-${BUILD}/broadcom/"
+      mkdir -p "${INSTALL_STAGING}/lib/linux-image-${BUILD}/overlays/"
+      cp .config "${INSTALL_STAGING}/boot/config-${BUILD}"
+      echo "ffffffffffffffff B The real System.map is in the linux-image-<version>-dbg package" > "${INSTALL_STAGING}/boot/System.map-${BUILD}"
+      cp arch/arm64/boot/Image.gz "${INSTALL_STAGING}/boot/vmlinuz-${BUILD}"
+      cp arch/arm64/boot/dts/broadcom/*.dtb "${INSTALL_STAGING}/lib/linux-image-${BUILD}/broadcom/"
+      cp arch/arm64/boot/dts/overlays/*.dtb* "${INSTALL_STAGING}/lib/linux-image-${BUILD}/overlays/"
+      cp arch/arm64/boot/dts/overlays/README "${INSTALL_STAGING}/lib/linux-image-${BUILD}/overlays/"
+      cp arch/arm64/boot/Image.gz "${INSTALL_STAGING}/boot/firmware/${OLDIMG}"
+      cp arch/arm64/boot/dts/broadcom/*.dtb "${INSTALL_STAGING}/boot/firmware/"
+      cp arch/arm64/boot/dts/overlays/*.dtb* "${INSTALL_STAGING}/boot/firmware/overlays/"
+      cp arch/arm64/boot/dts/overlays/README "${INSTALL_STAGING}/boot/firmware/overlays/"
     else
-      make -j ${JOBS} ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz modules dtbs
-      env PATH=$PATH make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=${DSTDIR} modules_install
-      mkdir -p "${DSTDIR}/boot/overlays/"
-      cp arch/arm64/boot/Image.gz "${DSTDIR}/boot/${OLDIMG}"
-      cp arch/arm64/boot/dts/broadcom/*.dtb "${DSTDIR}/boot/"
-      cp arch/arm64/boot/dts/overlays/*.dtb* "${DSTDIR}/boot/overlays/"
-      cp arch/arm64/boot/dts/overlays/README "${DSTDIR}/boot/overlays/"
+      make -j ${JOBS} ${MAKE_OPTS} ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz modules dtbs
+      env PATH=$PATH make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=${INSTALL_STAGING} modules_install
+      mkdir -p "${INSTALL_STAGING}/boot/overlays/"
+      RED "PWD=$PWD"
+      RED "INSTALL_STAGING=$INSTALL_STAGING"
+      RED "OLDIMG=$OLDIMG"
+      set -x
+      cp -av $PWD/arch/arm64/boot/Image.gz ${INSTALL_STAGING}/boot/${OLDIMG}
+      cp -av $PWD/arch/arm64/boot/dts/broadcom/*.dtb  ${INSTALL_STAGING}/boot/
+      cp -av $PWD/arch/arm64/boot/dts/overlays/*.dtb* ${INSTALL_STAGING}/boot/overlays/
+      cp -av $PWD/arch/arm64/boot/dts/overlays/README ${INSTALL_STAGING}/boot/overlays/
     fi
 
   else
 
     if [ "${OLDBOOT}" = "FALSE" ]; then
-      make -j ${JOBS} KERNELRELEASE="${BUILD}" ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- zImage modules dtbs
-      env PATH=$PATH make KERNELRELEASE="${BUILD}" ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- INSTALL_MOD_PATH=${DSTDIR} modules_install
-      mkdir -p "${DSTDIR}/boot/firmware/overlays/"
-      mkdir -p "${DSTDIR}/lib/linux-image-${BUILD}/overlays/"
-      cp .config "${DSTDIR}/boot/config-${BUILD}"
-      echo "ffffffffffffffff B The real System.map is in the linux-image-<version>-dbg package" > "${DSTDIR}/boot/System.map-${BUILD}"
-      cp arch/arm/boot/zImage "${DSTDIR}/boot/vmlinuz-${BUILD}"
-      cp arch/arm/boot/zImage "${DSTDIR}/boot/firmware/${OLDIMG}"
+      make -j ${JOBS} ${MAKE_OPTS} KERNELRELEASE="${BUILD}" ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- zImage modules dtbs
+      env PATH=$PATH make KERNELRELEASE="${BUILD}" ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- INSTALL_MOD_PATH=${INSTALL_STAGING} modules_install
+      mkdir -p "${INSTALL_STAGING}/boot/firmware/overlays/"
+      mkdir -p "${INSTALL_STAGING}/lib/linux-image-${BUILD}/overlays/"
+      cp .config "${INSTALL_STAGING}/boot/config-${BUILD}"
+      echo "ffffffffffffffff B The real System.map is in the linux-image-<version>-dbg package" > "${INSTALL_STAGING}/boot/System.map-${BUILD}"
+      cp arch/arm/boot/zImage "${INSTALL_STAGING}/boot/vmlinuz-${BUILD}"
+      cp arch/arm/boot/zImage "${INSTALL_STAGING}/boot/firmware/${OLDIMG}"
 
       if [ "$(olddtb)" = "TRUE" ]; then
-        cp arch/arm/boot/dts/*.dtb "${DSTDIR}/lib/linux-image-${BUILD}/"
-        cp arch/arm/boot/dts/*.dtb "${DSTDIR}/boot/firmware/"
+        cp arch/arm/boot/dts/*.dtb "${INSTALL_STAGING}/lib/linux-image-${BUILD}/"
+        cp arch/arm/boot/dts/*.dtb "${INSTALL_STAGING}/boot/firmware/"
       else
-        cp arch/arm/boot/dts/broadcom/*.dtb "${DSTDIR}/lib/linux-image-${BUILD}/"
-        cp arch/arm/boot/dts/broadcom/*.dtb "${DSTDIR}/boot/firmware/"
+        cp arch/arm/boot/dts/broadcom/*.dtb "${INSTALL_STAGING}/lib/linux-image-${BUILD}/"
+        cp arch/arm/boot/dts/broadcom/*.dtb "${INSTALL_STAGING}/boot/firmware/"
       fi
 
-      cp arch/arm/boot/dts/overlays/*.dtb* "${DSTDIR}/lib/linux-image-${BUILD}/overlays/"
-      cp arch/arm/boot/dts/overlays/README "${DSTDIR}/lib/linux-image-${BUILD}/overlays/"
-      cp arch/arm/boot/dts/overlays/*.dtb* "${DSTDIR}/boot/firmware/overlays/"
-      cp arch/arm/boot/dts/overlays/README "${DSTDIR}/boot/firmware/overlays/"
+      cp arch/arm/boot/dts/overlays/*.dtb* "${INSTALL_STAGING}/lib/linux-image-${BUILD}/overlays/"
+      cp arch/arm/boot/dts/overlays/README "${INSTALL_STAGING}/lib/linux-image-${BUILD}/overlays/"
+      cp arch/arm/boot/dts/overlays/*.dtb* "${INSTALL_STAGING}/boot/firmware/overlays/"
+      cp arch/arm/boot/dts/overlays/README "${INSTALL_STAGING}/boot/firmware/overlays/"
     else
-      make -j ${JOBS} ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- zImage modules dtbs
-      env PATH=$PATH make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- INSTALL_MOD_PATH=${DSTDIR} modules_install
-      mkdir -p "${DSTDIR}/boot/overlays/"
-      cp arch/arm/boot/zImage "${DSTDIR}/boot/${OLDIMG}"
+      make -j ${JOBS} ${MAKE_OPTS} ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- zImage modules dtbs
+      env PATH=$PATH make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- INSTALL_MOD_PATH=${INSTALL_STAGING} modules_install
+      mkdir -p "${INSTALL_STAGING}/boot/overlays/"
+      cp arch/arm/boot/zImage "${INSTALL_STAGING}/boot/${OLDIMG}"
 
       if [ "$(olddtb)" = "TRUE" ]; then
-        cp arch/arm/boot/dts/*.dtb "${DSTDIR}/boot/"
+        cp arch/arm/boot/dts/*.dtb "${INSTALL_STAGING}/boot/"
       else
-        cp arch/arm/boot/dts/broadcom/*.dtb "${DSTDIR}/boot/"
+        cp arch/arm/boot/dts/broadcom/*.dtb "${INSTALL_STAGING}/boot/"
       fi
 
-      cp arch/arm/boot/dts/overlays/*.dtb* "${DSTDIR}/boot/overlays/"
-      cp arch/arm/boot/dts/overlays/README "${DSTDIR}/boot/overlays/"
+      cp arch/arm/boot/dts/overlays/*.dtb* "${INSTALL_STAGING}/boot/overlays/"
+      cp arch/arm/boot/dts/overlays/README "${INSTALL_STAGING}/boot/overlays/"
     fi
 
   fi
 
   ARCHIVE="kernel-$(sed -n 's|^.*\s\+\(\S\+\.\S\+\.\S\+\)\s\+Kernel Configuration$|\1|p' .config)$(sed -n 's|^CONFIG_LOCALVERSION=\"\(.*\)\"$|\1|p' .config).zip"
-  cd "${DSTDIR}"
+  cd "${INSTALL_STAGING}"
   find lib -type l -exec rm {} \;
   zip -q -r "${ARCHIVE}" *
 
@@ -929,7 +952,8 @@ if [ "${XCOMPILE}" = "TRUE" ]; then
     if [ "${OUTDIR: -1}" != "/" ]; then
       OUTDIR+="/"
     fi
-
+    mkdir -p ${OUTDIR}
+    
   else
 
     if [ "${REALUSER}" = "root" ]; then
@@ -942,15 +966,16 @@ if [ "${XCOMPILE}" = "TRUE" ]; then
 
   chown "${REALUSER}:${REALUSER}" "${ARCHIVE}"
   cd "${CURDIR}"
-  mv "${DSTDIR}/${ARCHIVE}" "${OUTDIR}"
-  rm -r "${DSTDIR}"
-  DSTDIR=""
+  mv "${INSTALL_STAGING}/${ARCHIVE}" "${OUTDIR}"
+
+  #rm -r "${INSTALL_STAGING}"   # keep around for incrementa?
+  #INSTALL_STAGING=""
 else
 
   if [[ "${KRNLID}" = "v8" || "${KRNLID}" = "2712" ]]; then
 
     if [ "${OLDBOOT}" = "FALSE" ]; then
-      make -j ${JOBS} KERNELRELEASE="${BUILD}" Image.gz modules dtbs
+      make -j ${JOBS} ${MAKE_OPTS} KERNELRELEASE="${BUILD}" Image.gz modules dtbs
       make KERNELRELEASE="${BUILD}" modules_install
       mkdir -p /boot/firmware/overlays/
       mkdir -p "/lib/linux-image-${BUILD}/broadcom/"
@@ -971,7 +996,7 @@ else
       fi
 
     else
-      make -j ${JOBS} Image.gz modules dtbs
+      make -j ${JOBS} ${MAKE_OPTS} Image.gz modules dtbs
       make modules_install
 
       if [ "${KEEP}" = "TRUE" ]; then
@@ -987,7 +1012,7 @@ else
   else
 
     if [ "${OLDBOOT}" = "FALSE" ]; then
-      make -j ${JOBS} KERNELRELEASE="${BUILD}" zImage modules dtbs
+      make -j ${JOBS} ${MAKE_OPTS} KERNELRELEASE="${BUILD}" zImage modules dtbs
       make KERNELRELEASE="${BUILD}" modules_install
       mkdir -p /boot/firmware/overlays/
       mkdir -p "/lib/linux-image-${BUILD}/overlays/"
@@ -1014,7 +1039,7 @@ else
       fi
 
     else
-      make -j ${JOBS} zImage modules dtbs
+      make -j ${JOBS} ${MAKE_OPTS} zImage modules dtbs
       make modules_install
 
       if [ "${KEEP}" = "TRUE" ]; then
@@ -1043,7 +1068,7 @@ echo "Kernel successfully built"
 if [ "${PURGE}" = "TRUE" ]; then
   echo ""
   echo "Purging source files"
-  rm -r /usr/src/linux
+  rm -r $SOURCE_DIR/linux
 fi
 
 
@@ -1079,4 +1104,5 @@ if [ "${XCOMPILE}" = "FALSE" ]; then
 
 fi
 
+YELLOW "final output zip file will be found in $OUTDIR"
 echo ""
