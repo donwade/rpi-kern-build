@@ -1,5 +1,4 @@
 #!/bin/bash
-
 trap '{ stty sane; echo ""; errexit "Aborted"; }' SIGINT SIGTERM
 
 function make()
@@ -159,14 +158,17 @@ if [ $(id -u) -ne 0 ]; then
   errexit "Must be run as root user: sudo $0"
 fi
 
+
+# not sure why they check. maybe to stop many builds at once.
 PGMNAME="$(basename $0)"
-for PID in $(pidof -x -o %PPID "${PGMNAME}"); do
+#for PID in $(pidof -x -o %PPID "${PGMNAME}"); do
+#  if [ ${PID} -ne $$ ]; then
+#    echo  "${PGMNAME} is already running"
+#    #errexit "${PGMNAME} is already running"
+#  fi
+#done
 
-  if [ ${PID} -ne $$ ]; then
-    errexit "${PGMNAME} is already running"
-  fi
 
-done
 CURDIR="$(pwd)"
 
 if [ "${SUDO_USER}" != "" ]; then
@@ -421,7 +423,7 @@ if [[ "${XCOMPILE}" = "FALSE" &&\
   errexit "Local builds require similar kernel and userland architectures: use cross-compile mode (-x,--cross-compile) instead"
 fi
 
-instpkgs bc bison flex git libc6-dev libncurses5-dev libssl-dev make wget
+instpkgs bc bison flex git libc6-dev libncurses-dev libssl-dev make wget
 
 if [ "${XCOMPILE}" = "TRUE" ]; then
   instpkgs crossbuild-essential-armhf crossbuild-essential-arm64
