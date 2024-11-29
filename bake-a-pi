@@ -65,8 +65,9 @@ _EOF
 #
 ZIP_DIR_OUTPUT=/home/dwade/pi-kernel.out
 rm -rf $ZIP_DIR_OUTPUT/*
+mkdir -p $ZIP_DIR_OUTPUT
 
-    $PWD/build-kernel  -m  --branch rpi-6.6.y --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile $ZIP_DIR_OUTPUT  | tee build.log
+    $PWD/build-kernel  -m  --branch rename --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile $ZIP_DIR_OUTPUT  | tee build.log
     ret=${PIPESTATUS[0]}
 
     if [ $ret == 0 ]; then
