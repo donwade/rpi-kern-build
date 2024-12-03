@@ -1,7 +1,12 @@
 #!/bin/bash
 
+TARGET_HOST=pi6
+[ "$?" == "" ] || TARGET_HOST=pi5
+
 start_time=`date +%s`
 trap stopwatch SIGTERM SIGINT SIGQUIT EXIT 
+
+[ "`uname -m`" == 'x86_64' ] || echo "stop! you have to be an x86" || exit 3
 
 function stopwatch()
 {
@@ -75,11 +80,11 @@ mkdir -p $ZIP_DIR_OUTPUT
         ls -al $ZIP_DIR_OUTPUT
 
         #define PISSWORD in root's .profile file.
-        rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $ZIP_DIR_OUTPUT dwade@pi6:/home/dwade
+        rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $ZIP_DIR_OUTPUT dwade@$TARGET_HOST:/home/dwade
         sleep 2
 
         # trigger a reboot
-        rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $0 dwade@pi6:/home/dwade/
+        rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $0 dwade@$TARGET_HOST:/home/dwade/
     fi
     exit $ret
 # ./install-kernel /home/dwade/pi-kernel.out/kernel-6.6.63-v8-16k-CNN.zip
