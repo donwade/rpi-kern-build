@@ -69,22 +69,28 @@ _EOF
 #--purge  (delete source after build ) NO!
 #
 ZIP_DIR_OUTPUT=/home/dwade/pi-kernel.out
+
+
+TARGET_BRANCH=again
+BLINK_GREEN "target branch $TARGET_BRANCH"
+
 rm -rf $ZIP_DIR_OUTPUT/*
 mkdir -p $ZIP_DIR_OUTPUT
 
-    $PWD/build-kernel  -m  --branch rename --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile $ZIP_DIR_OUTPUT  | tee build.log
-    ret=${PIPESTATUS[0]}
+#$PWD/build-kernel --menuconfig --branch $TARGET_BRANCH --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile --out-dir $ZIP_DIR_OUTPUT  | tee build.log
+ $PWD/build-kernel  --branch $TARGET_BRANCH --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile --out-dir $ZIP_DIR_OUTPUT  | tee build.log
+ret=${PIPESTATUS[0]}
 
-    if [ $ret == 0 ]; then
-        echo "see $ZIP_DIR_OUTPUT for build output"
-        ls -al $ZIP_DIR_OUTPUT
+if [ $ret == 0 ]; then
+    echo "see $ZIP_DIR_OUTPUT for build output"
+    ls -al $ZIP_DIR_OUTPUT
+    
+    #define PISSWORD in root's .profile file.
+    rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $ZIP_DIR_OUTPUT dwade@$TARGET_HOST:/home/dwade
+    sleep 2
+    
+    # trigger a reboot
+    rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $0 dwade@$TARGET_HOST:/home/dwade/
+fi
 
-        #define PISSWORD in root's .profile file.
-        rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $ZIP_DIR_OUTPUT dwade@$TARGET_HOST:/home/dwade
-        sleep 2
-
-        # trigger a reboot
-        rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $0 dwade@$TARGET_HOST:/home/dwade/
-    fi
-    exit $ret
-# ./install-kernel /home/dwade/pi-kernel.out/kernel-6.6.63-v8-16k-CNN.zip
+exit $ret

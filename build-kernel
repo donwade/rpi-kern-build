@@ -99,16 +99,17 @@ Usage: $0 [options] [output directory]
    3 = ${CONFIG3}
    4 = ${CONFIG4}
    5 = ${CONFIG5}
--d,--delete          Delete existing source files
+   --delete-before   Delete existing source files
+   --delete-after    Purge source files upon completion
+   --out-dir         ouput directory
 -f,--freshen         Freshen existing source files
 -h,--help            This usage description
 -i,--interactive     Interactive shell before compile
 -j,--jobs            Number of jobs to run
 -k,--keep            Keep old kernel as .bak
--m,--menuconfig      Run menuconfig
+   --menuconfig      Run menuconfig
 -n,--noinitramfs     Disable running update-initramfs
 -o,--oldbootmnt      Use old boot mount (/boot)
--p,--purge           Purge source files upon completion
 -r,--reboot          Reboot upon completion
 -s,--suffix          Append modules suffix (suffix)
 -u,--unattended      Unattended operation, defaults:
@@ -179,7 +180,7 @@ ARCH_U="$(dpkg --print-architecture)"
 ZIP_OUTDIR=""
 TARGET_BRANCH_=""
 CONFIG=""
-DELETE=FALSE
+DELETE_BEFORE=FALSE
 FRESHEN=FALSE
 INTERACTIVE=FALSE
 JOBS=""
@@ -187,11 +188,12 @@ KEEP=FALSE
 MNUCFG=FALSE
 NOINITRAMFS=FALSE
 OLDBOOT=FALSE
-PURGE=FALSE
+DELETE_AFTER=FALSE
 REBOOT=FALSE
 SUFFIX=""
 UNATND=FALSE
 XCOMPILE=FALSE
+
 while [ $# -gt 0 ]; do
   case "$1" in
 
@@ -205,8 +207,8 @@ while [ $# -gt 0 ]; do
       shift 2
       ;;
 
-    -d|--delete)
-      DELETE=TRUE
+    --delete-before)
+      DELETE_BEFORE=TRUE
       shift
       ;;
 
@@ -225,6 +227,11 @@ while [ $# -gt 0 ]; do
       shift
       ;;
 
+    --out-dir)
+      ZIP_OUTDIR="$2"
+      shift 2
+    ;;
+
     -j|--jobs)
       JOBS="$2"
       shift 2
@@ -235,7 +242,7 @@ while [ $# -gt 0 ]; do
       shift
       ;;
 
-    -m|--menuconfig)
+    --menuconfig)
       MNUCFG=TRUE
       shift
       ;;
@@ -250,8 +257,8 @@ while [ $# -gt 0 ]; do
       shift
       ;;
 
-    -p|--purge)
-      PURGE=TRUE
+    --delete-after)
+      DELETE_AFTER=TRUE
       shift
       ;;
 
@@ -276,13 +283,15 @@ while [ $# -gt 0 ]; do
       ;;
 
     -*|--*)
-      errexit "Unrecognized option"
+      errexit "Unrecognized option  $1"
       ;;
 
     *)
-      ZIP_OUTDIR="$1"
-      ZIP_OUTDIR="$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' <<< "${ZIP_OUTDIR}")"
-      shift
+      err_exit "unknown option $1 exiting"
+      
+      #ZIP_OUTDIR="$1"
+      #ZIP_OUTDIR="$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' <<< "${ZIP_OUTDIR}")"
+      #shift
       ;;
 
   esac
@@ -560,7 +569,7 @@ if [[ "${XCOMPILE}" = "FALSE" && "${UNATND}" = "FALSE" && "${OLDBOOT}" = "TRUE" 
 fi
 
 
-if [[ "${UNATND}" = "FALSE" && "${PURGE}" = "FALSE" ]]; then
+if [[ "${UNATND}" = "FALSE" && "${DELETE_AFTER}" = "FALSE" ]]; then
   echo ""
   echo -n "Purge source files upon completion (y/n)? "
   while read -r -n 1 -s answer; do
@@ -569,7 +578,7 @@ if [[ "${UNATND}" = "FALSE" && "${PURGE}" = "FALSE" ]]; then
       echo "${answer}"
 
       if [[ ${answer} = [yY] ]]; then
-        PURGE=TRUE
+        DELETE_AFTER=TRUE
       fi
 
       break
@@ -642,7 +651,7 @@ if [[ "${XCOMPILE}" = "FALSE" && "${OLDBOOT}" = "TRUE" ]]; then
   echo "$(dispyn "Keep old kernel as .bak" "${KEEP}")"
 fi
 
-echo "$(dispyn "Purge source files upon completion" "${PURGE}")"
+echo "$(dispyn "Purge source files upon completion" "${DELETE_AFTER}")"
 
 if [ "${XCOMPILE}" = "FALSE" ]; then
   echo "$(dispyn "Reboot upon completion" "${REBOOT}")"
@@ -676,13 +685,14 @@ if [ -d $SRCDIR ]; then
     TARGET="$(git ls-remote --symref $SOURCE_URL | head -n 1 | sed -n 's|^ref:\s\+refs/heads/\(.*\)\s\+HEAD$|\1|p')"
   fi
 
-
+#  different branch? don't delete, try a checkout branch 
   if [ "${TARGET}" != "${SOURCE}" ]; then
-    DELETE=TRUE
+    #DELETE_BEFORE=TRUE
+    echo " **** git checkout will be attempted later"
   fi
 
 
-  if [[ "${UNATND}" = "FALSE" && "${DELETE}" = "FALSE" ]]; then
+  if [[ "${UNATND}" = "FALSE" && "${DELETE_BEFORE}" = "FALSE" ]]; then
     echo ""
     echo -n "Delete existing source files [Source/Target branch = ${SOURCE}] (y/n)? "
     while read -r -n 1 -s answer; do
@@ -691,7 +701,7 @@ if [ -d $SRCDIR ]; then
         echo "${answer}"
 
         if [[ ${answer} = [yY] ]]; then
-          DELETE=TRUE
+          DELETE_BEFORE=TRUE
         fi
 
         break
@@ -701,9 +711,10 @@ if [ -d $SRCDIR ]; then
   fi
 
 
-  if [ "${DELETE}" = "TRUE" ]; then
+  if [ "${DELETE_BEFORE}" = "TRUE" ]; then
     echo ""
-    echo "Deleting existing source files"
+    echo "Deleting existing source files???? (5 seconds)"
+    sleep 5
     rm -rf $SRCDIR
   fi
 
@@ -976,7 +987,7 @@ fi
 echo ""
 echo "Kernel successfully built"
 
-if [ "${PURGE}" = "TRUE" ]; then
+if [ "${DELETE_AFTER}" = "TRUE" ]; then
   echo ""
   echo "Purging source files"
   rm -r $SRCDIR
