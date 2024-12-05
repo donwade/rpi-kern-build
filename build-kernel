@@ -148,6 +148,16 @@ olddtb()
 STAGING_DIR=""
 SRCDIR="/home/dwade/raspi-linux"
 
+cp -av config.ref $SRCDIR/.config
+diff config.ref $SRCDIR/.config
+if [ $? == 0 ]; then
+    GREEN ".config file taken over"
+else
+    RED ".config file could not be updated"
+    exit
+fi
+sleep 2
+
 #if [ $(id -u) -ne 0 ]; then
 #  errexit "Must be run as root user: sudo $0"
 #fi
@@ -282,16 +292,8 @@ while [ $# -gt 0 ]; do
       shift
       ;;
 
-    -*|--*)
-      errexit "Unrecognized option  $1"
-      ;;
-
     *)
-      err_exit "unknown option $1 exiting"
-      
-      #ZIP_OUTDIR="$1"
-      #ZIP_OUTDIR="$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' <<< "${ZIP_OUTDIR}")"
-      #shift
+      errexit "Unrecognized option  $1"
       ;;
 
   esac

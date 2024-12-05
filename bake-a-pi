@@ -1,8 +1,9 @@
 #!/bin/bash
 
 TARGET_HOST=pi6
-[ "$?" == "" ] || TARGET_HOST=pi5
-
+[ "$?" != "" ] || TARGET_HOST=pi5
+BLINK_GREEN "target host = $TARGET_HOST"
+sleep 3
 start_time=`date +%s`
 trap stopwatch SIGTERM SIGINT SIGQUIT EXIT 
 
@@ -68,29 +69,29 @@ _EOF
 #--delete (delete entire source before build) !
 #--purge  (delete source after build ) NO!
 #
-ZIP_DIR_OUTPUT=/home/dwade/pi-kernel.out
+FINAL_KERNEL_OUT=/home/dwade/public
 
 
 TARGET_BRANCH=again
 BLINK_GREEN "target branch $TARGET_BRANCH"
 
-rm -rf $ZIP_DIR_OUTPUT/*
-mkdir -p $ZIP_DIR_OUTPUT
+rm -rf $FINAL_KERNEL_OUT/*
 
-#$PWD/build-kernel --menuconfig --branch $TARGET_BRANCH --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile --out-dir $ZIP_DIR_OUTPUT  | tee build.log
- $PWD/build-kernel  --branch $TARGET_BRANCH --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile --out-dir $ZIP_DIR_OUTPUT  | tee build.log
+
+ #$PWD/build-kernel --menuconfig --branch $TARGET_BRANCH --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile --out-dir $FINAL_KERNEL_OUT | tee build.log
+ $PWD/build-kernel               --branch $TARGET_BRANCH --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile --out-dir $FINAL_KERNEL_OUT | tee build.log
 ret=${PIPESTATUS[0]}
 
 if [ $ret == 0 ]; then
-    echo "see $ZIP_DIR_OUTPUT for build output"
-    ls -al $ZIP_DIR_OUTPUT
+    GREEN "see $FINAL_KERNEL_OUT for build output"
+    ls -al $FINAL_KERNEL_OUT
     
     #define PISSWORD in root's .profile file.
-    rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $ZIP_DIR_OUTPUT dwade@$TARGET_HOST:/home/dwade
+    rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $FINAL_KERNEL_OUT/* dwade@$TARGET_HOST:/home/dwade/public
     sleep 2
     
     # trigger a reboot
-    rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $0 dwade@$TARGET_HOST:/home/dwade/
+    rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $0 dwade@$TARGET_HOST:/home/dwade/public
 fi
 
 exit $ret
