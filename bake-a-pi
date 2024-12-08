@@ -72,14 +72,14 @@ _EOF
 FINAL_KERNEL_OUT=/home/dwade/public
 
 
-TARGET_BRANCH=again
+TARGET_BRANCH=insideOut
 BLINK_GREEN "target branch $TARGET_BRANCH"
 
 rm -rf $FINAL_KERNEL_OUT/*
 
 
  #$PWD/build-kernel --menuconfig --branch $TARGET_BRANCH --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile --out-dir $FINAL_KERNEL_OUT | tee build.log
- $PWD/build-kernel               --branch $TARGET_BRANCH --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile --out-dir $FINAL_KERNEL_OUT | tee build.log
+ $PWD/build-kernel  --branch $TARGET_BRANCH --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile --out-dir $FINAL_KERNEL_OUT | tee build.log
 ret=${PIPESTATUS[0]}
 
 if [ $ret == 0 ]; then
