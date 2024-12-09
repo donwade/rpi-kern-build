@@ -1,4 +1,5 @@
 #!/bin/bash
+rm -f *.log
 
 trap '{ stty sane; echo ""; errexit "Aborted"; }' SIGINT SIGTERM
 #source /home/dwade/Scripts/common/bash_backtrace.sh
@@ -798,14 +799,16 @@ if [ "${XCOMPILE}" = "TRUE" ]; then
 
       ask "image done, skip drivrs/dtbs" 3
       [ $? == 0 ] || errexit "early exit requested"
+
       title "drivers/dtbs"
+      echo "generating ..."
       make -j ${JOBS} KERNELRELEASE="${BUILD}" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- modules dtbs
       [ $? == 0 ] || errexit "driver/dtb failed"
 
       ask "drivers/dtbs done, skip install" 3
       [ $? == 0 ] || errexit "early exit requested"
       title "install"
-      env PATH=$PATH make KERNELRELEASE="${BUILD}" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=${STAGING_DIR} modules_install
+      env PATH=$PATH make KERNELRELEASE="${BUILD}" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=${STAGING_DIR} modules_install > mod_inst.log
 
       mkdir -p "${STAGING_DIR}/boot/firmware/overlays/"
       mkdir -p "${STAGING_DIR}/lib/linux-image-${BUILD}/broadcom/"
