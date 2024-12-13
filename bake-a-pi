@@ -1,4 +1,5 @@
 #!/bin/bash
+reset
 
 TARGET_HOST=pi6
 [ "$?" != "" ] || TARGET_HOST=pi5
@@ -72,7 +73,7 @@ _EOF
 FINAL_KERNEL_OUT=/home/dwade/public
 
 
-TARGET_BRANCH=insideOut
+TARGET_BRANCH=refactor.II
 BLINK_GREEN "target branch $TARGET_BRANCH"
 
 rm -rf $FINAL_KERNEL_OUT/*
