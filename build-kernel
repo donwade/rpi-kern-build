@@ -149,8 +149,8 @@ olddtb()
 STAGING_DIR=""
 SRCDIR="/home/dwade/raspi-linux"
 
-cp -av config.ref $SRCDIR/.config
-diff config.ref $SRCDIR/.config
+cp -av /home/dwade/pi-bakeshop/config.ref $SRCDIR/.config
+diff   /home/dwade/pi-bakeshop/config.ref $SRCDIR/.config
 if [ $? == 0 ]; then
     GREEN ".config file taken over"
 else
@@ -791,7 +791,7 @@ if [ "${XCOMPILE}" = "TRUE" ]; then
     errexit "mktemp failed"
   fi
 
-
+  set -x
   if [[ "${KRNLID}" = "v8" || "${KRNLID}" = "2712" ]]; then
     if [ "${OLDBOOT}" = "FALSE" ]; then
       make -j ${JOBS} KERNELRELEASE="${BUILD}" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz
