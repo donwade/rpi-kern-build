@@ -5,7 +5,10 @@ JOBS=3
 TARGET_HOST=pi6
 [ "$?" != "" ] || TARGET_HOST=pi5
 BLINK_GREEN "target host = $TARGET_HOST"
+
 sleep 3
+
+
 start_time=`date +%s`
 trap stopwatch SIGTERM SIGINT SIGQUIT EXIT 
 
@@ -74,7 +77,8 @@ _EOF
 FINAL_KERNEL_OUT=/home/dwade/public
 
 
-TARGET_BRANCH=refactor.II
+TARGET_BRANCH=gold
+refactor.II
 BLINK_GREEN "target branch $TARGET_BRANCH"
 
 rm -rf $FINAL_KERNEL_OUT/*
