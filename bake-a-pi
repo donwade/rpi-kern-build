@@ -1,6 +1,6 @@
 #!/bin/bash
 reset
-JOBS=1
+JOBS=3
 
 TARGET_HOST=pi6
 [ "$?" != "" ] || TARGET_HOST=pi5
@@ -80,8 +80,8 @@ BLINK_GREEN "target branch $TARGET_BRANCH"
 rm -rf $FINAL_KERNEL_OUT/*
 
 
- #$PWD/build-kernel --menuconfig --branch $TARGET_BRANCH --noinitramfs --config 5  --jobs 3 --unattended   --suffix CNN  --keep --cross-compile --out-dir $FINAL_KERNEL_OUT | tee build.log
- $PWD/build-kernel  --branch $TARGET_BRANCH --noinitramfs --config 5  --jobs $JOBS --unattended   --suffix CNN  --keep --cross-compile --out-dir $FINAL_KERNEL_OUT | tee build.log
+#$PWD/build-kernel  --branch $TARGET_BRANCH  --menuconfig --noinitramfs --config 5  --jobs $JOBS --unattended   --keep --cross-compile --out-dir $FINAL_KERNEL_OUT $* | tee build.log
+$PWD/build-kernel  --branch $TARGET_BRANCH                --noinitramfs --config 5  --jobs $JOBS --unattended   --keep --cross-compile --out-dir $FINAL_KERNEL_OUT $* | tee build.log
 ret=${PIPESTATUS[0]}
 
 if [ $ret == 0 ]; then

@@ -1,6 +1,13 @@
 #!/bin/bash
 rm -f *.log
 
+function make()
+{
+    title "make $*"
+    /bin/make $*
+    sleep 5
+}
+
 trap '{ stty sane; echo ""; errexit "Aborted"; }' SIGINT SIGTERM
 #source /home/dwade/Scripts/common/bash_backtrace.sh
 
@@ -149,15 +156,9 @@ olddtb()
 STAGING_DIR=""
 SRCDIR="/home/dwade/raspi-linux"
 
-cp -av /home/dwade/pi-bakeshop/config.ref $SRCDIR/.config
-diff   /home/dwade/pi-bakeshop/config.ref $SRCDIR/.config
-if [ $? == 0 ]; then
-    GREEN ".config file taken over"
-else
-    RED ".config file could not be updated"
-    exit
-fi
-sleep 2
+#https://forums.raspberrypi.com/viewtopic.php?t=343387
+
+
 
 #if [ $(id -u) -ne 0 ]; then
 #  errexit "Must be run as root user: sudo $0"
@@ -456,8 +457,12 @@ if [[ "${UNATND}" = "FALSE" && "${SUFFIX}" = "" ]]; then
   read -r SUFFIX
 fi
 
+YELLOW "SUFFIX coming in $SUFFIX"
 SUFFIX="$(sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' <<< "${SUFFIX}")"
 SUFFIX="$(tr [[:blank:]] _ <<< "${SUFFIX}")"
+YELLOW "SUFFIX going out $SUFFIX"
+sleep 4
+
 
 if [[ "${UNATND}" = "FALSE" && "${OLDBOOT}" = "FALSE" ]]; then
   echo ""
@@ -738,7 +743,6 @@ else
     cd $UP
     echo "git downloading into $SRCDIR"
 
-    set -x
     if [ "${TARGET_BRANCH}" = "default" ]; then
          git clone --quiet --depth=1 $SOURCE_URL $SRCDIR
     else
@@ -749,9 +753,19 @@ fi
 
 cd $SRCDIR
 echo ""
-make ${MAKCFG}
+
+
+if [ ! -f .config ]; then
+    RED "creating a base .config file "
+    make ${MAKCFG}
+else
+    cp -av /home/dwade/pi-bakeshop/config.ref $SRCDIR/.config
+    GREEN "using pre-exiting .config file"
+    sleep 3
+fi
 
 if [ "${SUFFIX}" != "" ]; then
+  BLINK_YELLOW ".config file 'CONFIG_LOCALVERSION overstruck with $SUFFIX"
   sed -i "s|^\(CONFIG_LOCALVERSION=\".*\)\"$|\1-${SUFFIX}\"|" .config
 fi
 
@@ -766,12 +780,34 @@ if [ "${MNUCFG}" = "TRUE" ]; then
       make -j${JOBS} ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig
     fi
 
+    ask "save this config off shore" 
+    if [ $? != 0 ]; then
+        GREEN "saving .config file out of tree"
+        cp .config /home/dwade/pi-bakeshop/config.ref
+        sleep 2
+    else
+        YELLOW "not saving .config file"
+    fi
+
   else
+    GREEN "making virgin .config file"
     make menuconfig
   fi
 
 fi
 
+GREEN "--------- option differnces ------------"
+mtmp=$(mktemp)
+diff   .config /home/dwade/pi-bakeshop/config.virgin > $mtmp
+while read LINE; do
+    x="`echo $LINE | cut -c1-3`"
+    if [ "$x" == '< C' ]; then
+        GREEN "$LINE"
+    elif [ "$x" == '> C' ]; then
+        RED "$LINE"
+    fi
+done < $mtmp
+GREEN "-------------------------------------------"
 
 if [ "${INTERACTIVE}" = "TRUE" ]; then
   echo ""
@@ -791,7 +827,6 @@ if [ "${XCOMPILE}" = "TRUE" ]; then
     errexit "mktemp failed"
   fi
 
-  set -x
   if [[ "${KRNLID}" = "v8" || "${KRNLID}" = "2712" ]]; then
     if [ "${OLDBOOT}" = "FALSE" ]; then
       make -j ${JOBS} KERNELRELEASE="${BUILD}" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz
@@ -825,11 +860,9 @@ if [ "${XCOMPILE}" = "TRUE" ]; then
       cp arch/arm64/boot/dts/overlays/README "${STAGING_DIR}/boot/firmware/overlays/"
     else
       make -j ${JOBS} ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz 
-      ask "ok1" 
       make -j ${JOBS} ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- modules dtbs
       env PATH=$PATH make ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=${STAGING_DIR} modules_install
 
-      ask "ok2"
       mkdir -p "${STAGING_DIR}/boot/overlays/"
       cp arch/arm64/boot/Image.gz "${STAGING_DIR}/boot/${OLDIMG}"
       cp arch/arm64/boot/dts/broadcom/*.dtb "${STAGING_DIR}/boot/"
