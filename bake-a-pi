@@ -3,11 +3,13 @@ reset
 JOBS=3
 
 TARGET_HOST=pi6
-[ "$?" != "" ] || TARGET_HOST=pi5
+
+[ "$1" != "" ] || TARGET_HOST=pi5
 BLINK_GREEN "target host = $TARGET_HOST"
 
 sleep 3
 
+#----------------------------------------------------------------------------
 
 start_time=`date +%s`
 trap stopwatch SIGTERM SIGINT SIGQUIT EXIT 
@@ -20,9 +22,47 @@ function stopwatch()
    stop_time=`date +%s`
    exec_time=$(date -u --date @$(($stop_time - $start_time)) +%H:%M:%S)
    echo -e "\n\ntotal time for build = $exec_time \n "
+   exit
 }
 
+#----------------------------------------------------------------------------
 #https://forums.raspberrypi.com/viewtopic.php?t=343387
+
+# Oldbootmnt 
+#  final zip file has 2 different layouts depending on deployment strategy
+#    - choose yes if you are pasting the zip file into a mounted Pi ISO IMAGE
+#    - dont include if you are zippping directly into a live system
+#
+#----------------------------------------------------------------------------
+FINAL_KERNEL_OUT=/home/dwade/public
+
+TARGET_BRANCH=gold
+BLINK_GREEN "target branch $TARGET_BRANCH"
+
+rm -rf $FINAL_KERNEL_OUT/*
+
+#$PWD/build-kernel  --branch $TARGET_BRANCH  --menuconfig --noinitramfs --config 5  --jobs $JOBS --unattended   --keep --cross-compile --out-dir $FINAL_KERNEL_OUT  | tee build.log
+$PWD/build-kernel  --branch $TARGET_BRANCH                --noinitramfs --config 5  --jobs $JOBS --unattended   --keep --cross-compile --out-dir $FINAL_KERNEL_OUT  | tee build.log
+ret=${PIPESTATUS[0]}
+
+if [ $ret == 0 ]; then
+    GREEN "see $FINAL_KERNEL_OUT for build output"
+    ls -al $FINAL_KERNEL_OUT
+    set -x    
+    #define PISSWORD in root's .profile file.
+    rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $FINAL_KERNEL_OUT/* dwade@$TARGET_HOST:/home/dwade/public
+    sleep 2
+    
+    # trigger a reboot
+    rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $0 dwade@$TARGET_HOST:/home/dwade/public
+    set +x
+else
+
+    RED "build failed"
+fi
+
+exit $ret
+
 
 cat << _EOF >> /dev/null
 Usage: build-kernel [options] [output directory]
@@ -65,39 +105,4 @@ Usage: build-kernel [options] [output directory]
 
 _EOF
 
-# Oldbootmnt 
-#  final zip file has 2 different layouts depending on deployment strategy
-#    - choose yes if you are pasting the zip file into a mounted Pi ISO IMAGE
-#    - dont include if you are zippping directly into a live system
-# ------------------
 
-#--delete (delete entire source before build) !
-#--purge  (delete source after build ) NO!
-#
-FINAL_KERNEL_OUT=/home/dwade/public
-
-
-TARGET_BRANCH=gold
-refactor.II
-BLINK_GREEN "target branch $TARGET_BRANCH"
-
-rm -rf $FINAL_KERNEL_OUT/*
-
-
-#$PWD/build-kernel  --branch $TARGET_BRANCH  --menuconfig --noinitramfs --config 5  --jobs $JOBS --unattended   --keep --cross-compile --out-dir $FINAL_KERNEL_OUT $* | tee build.log
-$PWD/build-kernel  --branch $TARGET_BRANCH                --noinitramfs --config 5  --jobs $JOBS --unattended   --keep --cross-compile --out-dir $FINAL_KERNEL_OUT $* | tee build.log
-ret=${PIPESTATUS[0]}
-
-if [ $ret == 0 ]; then
-    GREEN "see $FINAL_KERNEL_OUT for build output"
-    ls -al $FINAL_KERNEL_OUT
-    
-    #define PISSWORD in root's .profile file.
-    rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $FINAL_KERNEL_OUT/* dwade@$TARGET_HOST:/home/dwade/public
-    sleep 2
-    
-    # trigger a reboot
-    rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $0 dwade@$TARGET_HOST:/home/dwade/public
-fi
-
-exit $ret
