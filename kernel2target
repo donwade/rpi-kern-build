@@ -1,0 +1,27 @@
+#!/bin/bash
+
+if [ "$1" == "" ]; then 
+    TARGET_HOST=pi6
+else
+    TARGET_HOST=$1
+fi
+
+BLINK_GREEN "target host = $TARGET_HOST"
+
+#----------------------------------------------------------------------------
+FINAL_KERNEL_OUT=/home/dwade/public
+
+GREEN "see $FINAL_KERNEL_OUT for build output"
+ls -al $FINAL_KERNEL_OUT
+
+set -x    
+#define PISSWORD in root's .profile file.
+rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $FINAL_KERNEL_OUT/* dwade@$TARGET_HOST:/home/dwade/public
+sleep 2
+
+# trigger a reboot
+rsync -av --rsh="/usr/bin/sshpass -p $PISSWORD ssh -o StrictHostKeyChecking=no -l dwade" $0 dwade@$TARGET_HOST:/home/dwade/public
+set +x
+
+
+
