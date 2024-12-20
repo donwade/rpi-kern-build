@@ -832,7 +832,6 @@ if [ "${XCOMPILE}" = "TRUE" ]; then
   if [ $? -ne 0 ]; then
     errexit "mktemp failed"
   fi
-set -x
   if [[ "${KRNLID}" = "v8" || "${KRNLID}" = "2712" ]]; then
     if [ "${OLDBOOT}" = "FALSE" ]; then
       make -j ${JOBS} KERNELRELEASE="${BUILD}" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz
@@ -846,7 +845,6 @@ set -x
       make -j ${JOBS} KERNELRELEASE="${BUILD}" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- modules dtbs
       [ $? == 0 ] || errexit "driver/dtb failed"
 
-set +x
       ask "drivers/dtbs done, skip install" 3
       [ $? == 0 ] || errexit "early exit requested"
 
