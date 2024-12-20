@@ -3,9 +3,12 @@ rm -f *.log
 
 function make()
 {
+    local ret
     title "make $*"
     /bin/make $*
-    sleep 5
+    ret=$?
+    sleep 2
+    return $ret
 }
 
 trap '{ stty sane; echo ""; errexit "Aborted"; }' SIGINT SIGTERM
@@ -25,6 +28,7 @@ errexit()
 {
   echo ""
   echo "$1"
+  tone 500 100 4
   echo ""
 
 # do not delete source for incremental build sake! 
@@ -756,8 +760,8 @@ echo ""
 
 
 if [ ! -f .config ]; then
-    RED "creating a base .config file "
-    make ${MAKCFG}
+    RED "creating a base .config file "; sleep 3
+    make ${MAKCFG} || errexit "base config failed"
 else
     cp -av /home/dwade/pi-bakeshop/config.ref $SRCDIR/.config
     GREEN "using pre-exiting .config file"
@@ -775,9 +779,9 @@ if [ "${MNUCFG}" = "TRUE" ]; then
   if [ "${XCOMPILE}" = "TRUE" ]; then
 
     if [[ "${KRNLID}" = "v8" || "${KRNLID}" = "2712" ]]; then
-      make -j${JOBS} ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- menuconfig
+      make -j${JOBS} ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- menuconfig 
     else
-      make -j${JOBS} ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig
+      make -j${JOBS} ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig 
     fi
 
     ask "save this config off shore" 
@@ -796,7 +800,8 @@ if [ "${MNUCFG}" = "TRUE" ]; then
 
 fi
 
-GREEN "--------- option differnces ------------"
+GREEN "--------- show diff in options ------------"
+
 mtmp=$(mktemp)
 diff   .config /home/dwade/pi-bakeshop/config.virgin > $mtmp
 while read LINE; do
@@ -807,6 +812,7 @@ while read LINE; do
         RED "$LINE"
     fi
 done < $mtmp
+
 GREEN "-------------------------------------------"
 
 if [ "${INTERACTIVE}" = "TRUE" ]; then
@@ -826,7 +832,7 @@ if [ "${XCOMPILE}" = "TRUE" ]; then
   if [ $? -ne 0 ]; then
     errexit "mktemp failed"
   fi
-
+set -x
   if [[ "${KRNLID}" = "v8" || "${KRNLID}" = "2712" ]]; then
     if [ "${OLDBOOT}" = "FALSE" ]; then
       make -j ${JOBS} KERNELRELEASE="${BUILD}" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- Image.gz
@@ -840,10 +846,14 @@ if [ "${XCOMPILE}" = "TRUE" ]; then
       make -j ${JOBS} KERNELRELEASE="${BUILD}" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- modules dtbs
       [ $? == 0 ] || errexit "driver/dtb failed"
 
+set +x
       ask "drivers/dtbs done, skip install" 3
       [ $? == 0 ] || errexit "early exit requested"
+
+
       title "install"
       env PATH=$PATH make -j ${JOBS}  KERNELRELEASE="${BUILD}" ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- INSTALL_MOD_PATH=${STAGING_DIR} modules_install > mod_inst.log
+      [ $? == 0 ] || errexit "install prep failed"
 
       mkdir -p "${STAGING_DIR}/boot/firmware/overlays/"
       mkdir -p "${STAGING_DIR}/lib/linux-image-${BUILD}/broadcom/"
