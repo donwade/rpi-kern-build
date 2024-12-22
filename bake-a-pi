@@ -42,18 +42,18 @@ BLINK_GREEN "target branch $TARGET_BRANCH"
 
 rm -rf $FINAL_KERNEL_OUT/*
 
-tone 2000 200 
+tone 500 200 
 
 #$PWD/build-kernel  --branch $TARGET_BRANCH  --menuconfig --noinitramfs --config 5  --jobs $JOBS --unattended   --keep --cross-compile --out-dir $FINAL_KERNEL_OUT  | tee build.log
 $PWD/build-kernel  --branch $TARGET_BRANCH                --noinitramfs --config 5  --jobs $JOBS --unattended   --keep --cross-compile --out-dir $FINAL_KERNEL_OUT  | tee build.log
 ret=${PIPESTATUS[0]}
 
 if [ $ret == 0 ]; then
-    tone 1000 100 4
+    tone 500 200 2 
     GREEN "see $FINAL_KERNEL_OUT for build output"
     ./kernel2target $TARGET_HOST
-    tone 1500 100 2
-    tone 1900 100 2
+    tone 500 200 2 
+    tone 700 200 2 
 
 else
     RED "build failed"
