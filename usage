@@ -1,0 +1,46 @@
+usage()
+{
+  cat <<EOF
+
+Usage: $0 [options] [output directory]
+-b,--branch          Branch to use (commitid/current/default/rpi-M.N.y)
+-c,--config          Configuration to build:
+   1 = ${CONFIG1}
+   2 = ${CONFIG2}
+   3 = ${CONFIG3}
+   4 = ${CONFIG4}
+   5 = ${CONFIG5}
+   --delete-before   Delete existing source files
+   --delete-after    Purge source files upon completion
+   --out-dir         ouput directory
+-f,--freshen         Freshen existing source files
+-h,--help            This usage description
+-i,--interactive     Interactive shell before compile
+-j,--jobs            Number of jobs to run
+-k,--keep            Keep old kernel as .bak
+   --menuconfig      Run menuconfig
+-n,--noinitramfs     Disable running update-initramfs
+-o,--oldbootmnt      Use old boot mount (/boot)
+-r,--reboot          Reboot upon completion
+-s,--suffix          Append modules suffix (suffix)
+-u,--unattended      Unattended operation, defaults:
+   Branch = current
+   Config = ${CONFIG4}
+   Delete = auto
+   Freshen = no
+   Interactive = no
+   Jobs = 4
+   Keep = no
+   Menuconfig = no
+   Noinitramfs = no
+   Oldbootmnt = no
+   Purge = no
+   Reboot = no
+   Suffix = none
+   Xcompile = no
+-x,--cross-compile   Cross-compile mode
+
+EOF
+}
+
+usage
