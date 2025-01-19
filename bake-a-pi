@@ -2,7 +2,7 @@
 reset
 JOBS=3
 
-TARGET_BRANCH=jan4 
+TARGET_BRANCH=squid-games.II
 TARGET_HOST=pi6
 
 [ "`uname -m`" == 'x86_64' ] || echo "stop! you have to be an x86" || exit 3
