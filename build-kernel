@@ -1,6 +1,5 @@
 #!/bin/bash
 rm -f *.log
-
 function make()
 {
     local ret
@@ -166,6 +165,7 @@ UNATND=FALSE
 XCOMPILE=FALSE
 
 while [ $# -gt 0 ]; do
+  GREEN "option $1"
   case "$1" in
 
     -b|--branch)
@@ -254,7 +254,9 @@ while [ $# -gt 0 ]; do
       ;;
 
     *)
-      errexit "Unrecognized option  $1"
+      RED "Unrecognized option  $1"
+      sleep 5
+      shift
       ;;
 
   esac
